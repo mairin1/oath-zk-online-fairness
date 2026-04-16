@@ -170,6 +170,16 @@ void example_bit_vectors_DP(vector<Bit> & predicted_outcomes, vector<Bit> & sens
     }
 }
 
-
+void example_queries_IF(vector<vector<Bit>> & queries, vector<Bit> & sensitive_attributes, int num_points, int query_len){
+    for (int i=0; i<num_points; i++){
+        vector<Bit> query;
+        query.push_back(sensitive_attributes[i]);
+        for (int j=1; j<query_len; j++){
+            bool bit_val = (i^j) % 2;
+            query.push_back(Bit(bit_val));
+        }
+        queries.push_back(query);
+    }
+}
 
 #endif

@@ -14,6 +14,61 @@ void check() {
     cout << "check\n";
 }
 
+double compute_bit_l2_norm(vector<Bit> & a, vector<Bit> & b, const int NUM_POINTS){
+    // can xor the queries (equivalent to subtracting)
+    // no need to square b/c we are only dealing with bits
+    double ans = 0;
+    for (int i=0; i<NUM_POINTS; i++){
+        ans += (a[i] ^ b[i]).reveal();
+    }
+    return sqrt(ans);
+}
+
+// given a set of predicted outcomes and sensitive attributes, prove that the model is eps-individually fair an eps_thresh
+// predicted outcomes and sensitive attributes should be 1 or 0 valued -- this can be proven at low cost,
+// but for this subroutine we take it as given (as it can be ensured by proofs upstream of this function)
+void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_outcomes, vector<Bit> & sensitive_attributes, Integer eps_thresh, const int NUM_POINTS, bool verbose=false) {
+    // initialize constant values and counters
+    Integer ZERO = Integer(32, 0, PUBLIC);
+    // Bit TRU = Bit(1, PUBLIC);
+    Bit FAL = Bit(0, PUBLIC);
+    vector<Bit> pairPasses;
+    Integer HUNDRED_THOUSAND = Integer(32, 100000, PUBLIC); // for normalizing
+
+    for (int i=0; i<NUM_POINTS; ++i) {
+        for (int j=i+1; j<NUM_POINTS; j++) {
+            Bit pass = 1;
+            vector<Bit> queryI = queries[i];
+            vector<Bit> queryJ = queries[j];
+            // zero out sensitive values so they don't affect the norm
+            // TODO: assuming sensitive values are in the first position of the query as in the paper
+            queryI[0] = FAL;
+            queryJ[0] = FAL;
+
+            double l2_norm = compute_bit_l2_norm(queryI, queryJ, NUM_POINTS);
+            Integer l2_norm_int = Integer(32, l2_norm * 100000);
+            if (eps_thresh.geq(l2_norm_int).reveal() == 1){
+                pass = Bit(predicted_outcomes[i] == predicted_outcomes[j]);
+            }
+
+            // set values back
+            queryI[0] = sensitive_attributes[i];
+            queryJ[0] = sensitive_attributes[j];
+            pairPasses.push_back(pass);
+        }
+    }
+
+    // prove that for all pairs of inputs with l2 norm < eps, the model produces the same output 
+    int numPairs = (NUM_POINTS * (NUM_POINTS + 1)) / 2;
+    Bit fair_check = 1;
+    for (int i=0; i<numPairs; i++) {
+        fair_check = fair_check & pairPasses[i];
+    }
+    if (verbose) {
+        cout << "Fair? " << fair_check.reveal() << endl;
+    }
+}
+
 // given a set of predicted outcomes and sensitive attributes, prove that the demographic parity gap is beneath a threshold.
 // predicted outcomes and sensitive attributes should be 1 or 0 valued -- this can be proven at low cost,
 // but for this subroutine we take it as given (as it can be ensured by proofs upstream of this function)
