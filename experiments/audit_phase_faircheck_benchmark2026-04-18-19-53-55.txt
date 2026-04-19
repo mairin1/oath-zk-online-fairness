@@ -1,0 +1,16 @@
+D	runtime (microsec)	model	phase
+100000	479540	doesntmatter	3 faircheck
+100000	474106	doesntmatter	3 faircheck
+100000	483997	doesntmatter	3 faircheck
+100000	473447	doesntmatter	3 faircheck
+100000	507683	doesntmatter	3 faircheck
+500000	2.47291e+06	doesntmatter	3 faircheck
+500000	2.50792e+06	doesntmatter	3 faircheck
+500000	2.43436e+06	doesntmatter	3 faircheck
+500000	2.45025e+06	doesntmatter	3 faircheck
+500000	2.44423e+06	doesntmatter	3 faircheck
+1000000	4.9792e+06	doesntmatter	3 faircheck
+1000000	5.12047e+06	doesntmatter	3 faircheck
+1000000	5.14323e+06	doesntmatter	3 faircheck
+1000000	5.17757e+06	doesntmatter	3 faircheck
+1000000	5.02872e+06	doesntmatter	3 faircheck

@@ -29,7 +29,7 @@ void bench_faircheck_IF(int D, int Q, BoolIO<NetIO> *ios[threads], int party, st
     example_queries_IF(queries_pool, sensitive_attributes_pool, D, Q);
 
     auto start = emp::clock_start();
-    certify_postproc_IF(queries_pool, predicted_outcomes_pool, sensitive_attributes_pool, eps_thresh, D, true);
+    certify_postproc_IF(queries_pool, predicted_outcomes_pool, sensitive_attributes_pool, eps_thresh, D, Q, true);
     // TODO: need to figure out what this is doing
     // bool cheat = finalize_zk_bool<BoolIO<NetIO>>();
     // if (cheat)error("cheat!\n");    
@@ -71,8 +71,7 @@ int main(int argc, char **argv) {
     // test_circuit_zk(ios, party);
     //setup_zk_bool<BoolIO<NetIO>>(ios, threads, party);
 
-    //int Ds[3] = {100000, 500000, 1000000};
-    int Ds[3] = {100, 500, 700};
+    int Ds[3] = {100000, 500000, 1000000};
     if (party==ALICE) {
         FILE *fp = freopen(logfile_str.c_str(), "w", stdout);
         cout << "IF\truntime (microsec)\tmodel\tphase\n";    
