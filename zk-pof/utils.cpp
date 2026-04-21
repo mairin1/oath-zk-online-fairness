@@ -170,12 +170,22 @@ void example_bit_vectors_DP(vector<Bit> & predicted_outcomes, vector<Bit> & sens
     }
 }
 
-void example_queries_IF(vector<vector<Bit>> & queries, vector<Bit> & sensitive_attributes, int num_points, int query_len){
+void example_queries_IF(vector<vector<Bit>> & queries, vector<Bit> & sensitive_attributes, vector<Bit> & predicted_outcomes, int num_points, int query_len){
+    // should be fair for certain eps values
     for (int i=0; i<num_points; i++){
         vector<Bit> query;
         query.push_back(sensitive_attributes[i]);
+        // only one position + sensitive attribute should be different for queries with the same outcome
+        bool pred_outcome = (predicted_outcomes[i] == Bit(0)).reveal();
         for (int j=1; j<query_len; j++){
-            bool bit_val = (i^j) % 2;
+            bool bit_val;
+            if (j==0){
+                bit_val = (i ^ j) % 2;
+            } else if (pred_outcome){
+                bit_val = 0;
+            } else {
+                bit_val = 1;
+            }
             query.push_back(Bit(bit_val));
         }
         queries.push_back(query);

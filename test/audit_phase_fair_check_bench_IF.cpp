@@ -26,7 +26,7 @@ void bench_faircheck_IF(int D, int Q, BoolIO<NetIO> *ios[threads], int party, st
     example_bit_vectors_DP(predicted_outcomes_pool, sensitive_attributes_pool, D, 0.8, 0.78, 0.5);
 
     vector<vector<Bit>> queries_pool;
-    example_queries_IF(queries_pool, sensitive_attributes_pool, D, Q);
+    example_queries_IF(queries_pool, sensitive_attributes_pool, predicted_outcomes_pool, D, Q);
 
     auto start = emp::clock_start();
     certify_postproc_IF(queries_pool, predicted_outcomes_pool, sensitive_attributes_pool, eps_thresh, D, Q, true);

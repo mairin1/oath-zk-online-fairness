@@ -27,51 +27,42 @@ double compute_bit_l2_norm(vector<Bit> & a, vector<Bit> & b, const int NUM_POINT
 // given a set of predicted outcomes and sensitive attributes, prove that the model is eps-individually fair an eps_thresh
 // predicted outcomes and sensitive attributes should be 1 or 0 valued -- this can be proven at low cost,
 // but for this subroutine we take it as given (as it can be ensured by proofs upstream of this function)
-void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_outcomes, vector<Bit> & sensitive_attributes, Integer eps_thresh, const int NUM_POINTS, const int QUERY_SIZE, bool verbose=false) {
+void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_outcomes, vector<Bit> & sensitive_attributes, Integer eps_thresh, const int NUM_POINTS, bool verbose=false) {
     // initialize constant values and counters
     Integer ZERO = Integer(32, 0, PUBLIC);
-    Bit TRU = Bit(1, PUBLIC);
+    // Bit TRU = Bit(1, PUBLIC);
     Bit FAL = Bit(0, PUBLIC);
+    vector<Bit> pairPasses;
     Integer HUNDRED_THOUSAND = Integer(32, 100000, PUBLIC); // for normalizing
 
-    // Separate clients/queries into groups based on predicted outcome
-    vector<int> clients_predicted_zero;
-    vector<int> clients_predicted_one;
-    for (int i=0; i<NUM_POINTS; i++){
-        if ((predicted_outcomes[i] == (FAL)).reveal()){
-            clients_predicted_zero.push_back(i);
-        } else {
-            clients_predicted_one.push_back(i);
-        }
-    }
-
-    Bit fair_check = TRU;
-
-    for (int i=0; i<clients_predicted_zero.size(); i++){
-        int index_a = clients_predicted_zero[i];
-        for (int j=0; j<clients_predicted_zero.size(); j++){
-            int index_b = clients_predicted_zero[j];
-            vector<Bit> queryA = queries[index_a];
-            vector<Bit> queryB = queries[index_b];
+    for (int i=0; i<NUM_POINTS; ++i) {
+        for (int j=i+1; j<NUM_POINTS; j++) {
+            Bit pass = 1;
+            vector<Bit> queryI = queries[i];
+            vector<Bit> queryJ = queries[j];
             // zero out sensitive values so they don't affect the norm
             // TODO: assuming sensitive values are in the first position of the query as in the paper
-            queryA[0] = FAL;
-            queryB[0] = FAL;
-            
-            double l2_norm = compute_bit_l2_norm(queryA, queryB, QUERY_SIZE);
+            queryI[0] = FAL;
+            queryJ[0] = FAL;
+
+            double l2_norm = compute_bit_l2_norm(queryI, queryJ, NUM_POINTS);
             Integer l2_norm_int = Integer(32, l2_norm * 100000);
             if (eps_thresh.geq(l2_norm_int).reveal() == 1){
-                fair_check = FAL;
-                // do not have IF fairness if one pair with the same output has l2_norm >= eps, can stop checking
-                break;
+                pass = Bit(predicted_outcomes[i] == predicted_outcomes[j]);
             }
+
             // set values back
-            queryA[0] = sensitive_attributes[i];
-            queryB[0] = sensitive_attributes[j];
+            queryI[0] = sensitive_attributes[i];
+            queryJ[0] = sensitive_attributes[j];
+            pairPasses.push_back(pass);
         }
     }
-
     // prove that for all pairs of inputs with l2 norm < eps, the model produces the same output 
+    int numPairs = (NUM_POINTS * (NUM_POINTS + 1)) / 2;
+    Bit fair_check = 1;
+    for (int i=0; i<numPairs; i++) {
+        fair_check = fair_check & pairPasses[i];
+    }
     if (verbose) {
         cout << "Fair? " << fair_check.reveal() << endl;
     }
