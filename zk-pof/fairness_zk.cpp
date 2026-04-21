@@ -46,11 +46,10 @@ void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_
             queryJ[0] = FAL;
 
             double l2_norm = compute_bit_l2_norm(queryI, queryJ, NUM_POINTS);
-            Integer l2_norm_int = Integer(32, l2_norm * 100000);
+            Integer l2_norm_int = Integer(32, l2_norm * 100000, PUBLIC);
             if (eps_thresh.geq(l2_norm_int).reveal() == 1){
                 pass = Bit(predicted_outcomes[i] == predicted_outcomes[j]);
             }
-
             // set values back
             queryI[0] = sensitive_attributes[i];
             queryJ[0] = sensitive_attributes[j];
@@ -58,9 +57,8 @@ void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_
         }
     }
     // prove that for all pairs of inputs with l2 norm < eps, the model produces the same output 
-    int numPairs = (NUM_POINTS * (NUM_POINTS + 1)) / 2;
     Bit fair_check = 1;
-    for (int i=0; i<numPairs; i++) {
+    for (int i=0; i<pairPasses.size(); i++) {
         fair_check = fair_check & pairPasses[i];
     }
     if (verbose) {
