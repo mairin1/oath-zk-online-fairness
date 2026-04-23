@@ -56,7 +56,7 @@ void certify_postproc_IF(vector<vector<Bit>> & queries, vector<Bit> & predicted_
             pairPasses.push_back(pass);
         }
     }
-    // prove that for all pairs of inputs with l2 norm < eps, the model produces the same output 
+    // prove that for all pairs of inputs with l2 norm < eps, the model produces the same output
     Bit fair_check = 1;
     for (int i=0; i<pairPasses.size(); i++) {
         fair_check = fair_check & pairPasses[i];
@@ -90,7 +90,7 @@ void certify_postproc_DP(vector<Bit> & predicted_outcomes, vector<Bit> & sensiti
         Integer int_sa_zero_indicator = Integer(32, 0, PUBLIC);
         int_sa_zero_indicator[0] = sa_zero_indicator;
         Integer int_sa_one_indicator = Integer(32, 0, PUBLIC);
-        int_sa_one_indicator[0] = sa_one_indicator; 
+        int_sa_one_indicator[0] = sa_one_indicator;
         Integer int_zero_pos_indicator = Integer(32, 0, PUBLIC);
         int_zero_pos_indicator[0] = zero_pos_indicator;
         Integer int_one_pos_indicator = Integer(32, 0, PUBLIC);
@@ -115,6 +115,111 @@ void certify_postproc_DP(vector<Bit> & predicted_outcomes, vector<Bit> & sensiti
     }
 }
 
+// given a set of predicted classes and sensitive attributes, prove that the model satisfies demographic parity for each class
+// per-class fairness: for each class k, verify that |P(Ŷ=k|A=0) - P(Ŷ=k|A=1)| <= threshold
+// predicted classes should be in range [0, num_classes-1]
+void certify_postproc_multiclass_DP(vector<Integer> & predicted_classes, vector<Bit> & sensitive_attributes, Integer dp_gap_thresh, const int NUM_POINTS, const int num_classes, bool verbose=false) {
+    // initialize constant values
+    Integer ZERO = Integer(32, 0, PUBLIC);
+    Bit TRU = Bit(1, PUBLIC);
+    Integer HUNDRED_THOUSAND = Integer(32, 100000, PUBLIC); // normalize DP thresh
+
+    Bit all_classes_fair = Bit(1, PUBLIC); // all classes must pass fairness check
+
+    // for each class k, check demographic parity independently
+    for (int k=0; k<num_classes; ++k) {
+        Integer count_sa_zero = Integer(32, 0, PUBLIC);
+        Integer count_sa_one = Integer(32, 0, PUBLIC);
+        Integer count_zero_class_k = Integer(32, 0, PUBLIC);
+        Integer count_one_class_k = Integer(32, 0, PUBLIC);
+        Integer class_k_int = Integer(32, k, PUBLIC);
+
+        // count instances where class==k and class sizes in zero knowledge
+        for (int i=0; i<NUM_POINTS; ++i) {
+            // define indicator bits for sensitive attribute; sensitive attribute and prediction==k
+            Bit sa_zero_indicator = sensitive_attributes[i] ^ TRU; // negate
+            Bit sa_one_indicator = sensitive_attributes[i];
+            Bit is_class_k = (predicted_classes[i] == class_k_int);
+            Bit zero_class_k_indicator = sa_zero_indicator & is_class_k;
+            Bit one_class_k_indicator = sa_one_indicator & is_class_k;
+
+            // convert bits to integers for addition
+            Integer int_sa_zero_indicator = Integer(32, 0, PUBLIC);
+            int_sa_zero_indicator[0] = sa_zero_indicator;
+            Integer int_sa_one_indicator = Integer(32, 0, PUBLIC);
+            int_sa_one_indicator[0] = sa_one_indicator;
+            Integer int_zero_class_k_indicator = Integer(32, 0, PUBLIC);
+            int_zero_class_k_indicator[0] = zero_class_k_indicator;
+            Integer int_one_class_k_indicator = Integer(32, 0, PUBLIC);
+            int_one_class_k_indicator[0] = one_class_k_indicator;
+
+            // add to counters
+            count_sa_zero = count_sa_zero + int_sa_zero_indicator;
+            count_sa_one = count_sa_one + int_sa_one_indicator;
+            count_zero_class_k = count_zero_class_k + int_zero_class_k_indicator;
+            count_one_class_k = count_one_class_k + int_one_class_k_indicator;
+        }
+
+        // evaluate fairness for class k
+        // prove that DP gap is underneath threshold via:
+        // θ * N_a0 * N_a1 >= | Pos_a0_k * N_a1 - Pos_a1_k * N_a0 |
+        Integer temp = (count_zero_class_k * count_sa_one - count_one_class_k * count_sa_zero).abs() * HUNDRED_THOUSAND;
+        Bit class_k_fair = (dp_gap_thresh * count_sa_zero * count_sa_one).geq(temp);
+
+        if (verbose) {
+            cout << "Class " << k << " fair? " << class_k_fair.reveal() << endl;
+        }
+
+        all_classes_fair = all_classes_fair & class_k_fair;
+    }
+
+    if (verbose) {
+        cout << "All classes fair? " << all_classes_fair.reveal() << endl;
+    }
+}
+
+// given a set of predicted classes and sensitive attributes, prove that the model is eps-individually fair
+// for multiclass: similar inputs must receive the same predicted class
+void certify_postproc_multiclass_IF(vector<vector<Bit>> & queries, vector<Integer> & predicted_classes, vector<Bit> & sensitive_attributes, Integer eps_thresh, const int NUM_POINTS, bool verbose=false) {
+    // initialize constant values and counters
+    Integer ZERO = Integer(32, 0, PUBLIC);
+    Bit FAL = Bit(0, PUBLIC);
+    vector<Bit> pairPasses;
+    Integer HUNDRED_THOUSAND = Integer(32, 100000, PUBLIC); // for normalizing
+    int query_len = queries[0].size(); // get the query vector size
+
+    for (int i=0; i<NUM_POINTS; ++i) {
+        for (int j=i+1; j<NUM_POINTS; j++) {
+            Bit pass = 1;
+            vector<Bit> queryI = queries[i];
+            vector<Bit> queryJ = queries[j];
+            // zero out sensitive values so they don't affect the norm
+            // TODO: assuming sensitive values are in the first position of the query as in the paper
+            queryI[0] = FAL;
+            queryJ[0] = FAL;
+
+            double l2_norm = compute_bit_l2_norm(queryI, queryJ, query_len);
+            Integer l2_norm_int = Integer(32, l2_norm * 100000);
+            if (eps_thresh.geq(l2_norm_int).reveal() == 1){
+                pass = Bit(predicted_classes[i] == predicted_classes[j]);
+            }
+
+            // set values back
+            queryI[0] = sensitive_attributes[i];
+            queryJ[0] = sensitive_attributes[j];
+            pairPasses.push_back(pass);
+        }
+    }
+    // prove that for all pairs of inputs with l2 norm < eps, the model produces the same class
+    Bit fair_check = 1;
+    for (size_t i=0; i<pairPasses.size(); i++) {
+        fair_check = fair_check & pairPasses[i];
+    }
+    if (verbose) {
+        cout << "Multiclass IF Fair? " << fair_check.reveal() << endl;
+    }
+}
+
 void sensitive_attr_check(vector<Integer> alpha_xs, vector<Integer> alpha_zeros, vector<Integer> alpha_ones, vector<Bit> xs, size_t n_queries) {
     Bit b_pass(1, PUBLIC);
     for (int i=0; i<n_queries; ++i) {
@@ -134,9 +239,9 @@ ROZKRAM<BoolIO<NetIO>>* init_pi_in(int party, int N0, int ind_sz) {
         cout << "ERROR: init_pi_in needs bigger ind_sz\n";
         //exit;
     }
-    
+
     vector<int> xs;
-    
+
     for(int i=0; i<N0; ++i) {
         xs.push_back(i);
     }

@@ -69,6 +69,23 @@ vector<Float> softmax_LR(vector<Float> & input, vector<vector<Float>> & weights,
     return ret;
 }
 
+// Convert softmax probability outputs to predicted class indices in zero-knowledge
+// Input: softmax_outputs - vector of probability vectors, one per input sample
+//        num_classes - number of classes
+// Output: vector of Integer class indices (0 to num_classes-1)
+// Each probability vector should be length num_classes with softmax-normalized probabilities
+vector<Integer> multiclass_predictions_from_softmax(vector<vector<Float>> & softmax_outputs, const int num_classes) {
+    vector<Integer> predicted_classes;
+    for (size_t i=0; i<softmax_outputs.size(); ++i) {
+        Integer argmax_idx(32, 0, PUBLIC);
+        Float max_prob(0.0, PUBLIC);
+        // Use float_argmax pattern to find the class with highest probability
+        float_argmax(softmax_outputs[i], argmax_idx, max_prob);
+        predicted_classes.push_back(argmax_idx);
+    }
+    return predicted_classes;
+}
+
 // sz should be the size of the input vector
 void _ReLU(vector<Float> & input, size_t sz) {
     Float ZERO = Float(0, PUBLIC);
@@ -91,8 +108,8 @@ void fair2layer_NN(size_t input_sz, size_t hr1_sz, size_t hr2_sz, Bit & input_sa
     }
     _ReLU(hr2, hr2_sz);
 
-    // output layer 
-    Float logit = _linear(hr2, weights2); 
+    // output layer
+    Float logit = _linear(hr2, weights2);
     //Float score = _sigmoid(logit);
     Float score = logit; // FairProof doesn't seem to use sigmoid so this is a more direct comparison
 
@@ -124,11 +141,11 @@ void fair3layer_NN(size_t input_sz, size_t hr1_sz, size_t hr2_sz, size_t hr3_sz,
     _ReLU(hr3, hr3_sz);
 
 
-    // output layer 
+    // output layer
     vector<Float> ol;
     ol.push_back(Float(1.5, ALICE));
     ol.push_back(Float(1.5, ALICE));
-    //Float logit = _linear(hr3, ol); 
+    //Float logit = _linear(hr3, ol);
     //Float score = _sigmoid(logit);
     Float score = hr2[0]; // FairProof doesn't seem to use sigmoid so this is a more direct comparison
 
