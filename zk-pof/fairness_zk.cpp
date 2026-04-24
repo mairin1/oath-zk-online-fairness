@@ -18,7 +18,7 @@ double compute_bit_l2_norm(vector<Bit> & a, vector<Bit> & b, const int NUM_POINT
     // can xor the queries (equivalent to subtracting)
     // no need to square b/c we are only dealing with bits
     double ans = 0;
-    for (int i=0; i<NUM_POINTS; i++){
+    for (int i=0; i<a.size(); i++){ //  for (int i=0; i<NUM_POINTS; i++){
         ans += (a[i] ^ b[i]).reveal();
     }
     return sqrt(ans);
